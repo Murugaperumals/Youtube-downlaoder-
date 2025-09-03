@@ -1,0 +1,45 @@
+package com.example.youtubeinfo;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.client.RestTemplate;
+
+@SpringBootApplication
+public class YouTubeInfoApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(YouTubeInfoApplication.class, args);
+    }
+}
+
+@RestController
+class YouTubeController {
+
+    private final String API_KEY = "YOUR_YOUTUBE_API_KEY";  // Replace with your API key
+
+    @GetMapping("/getVideoInfo")
+    public String getVideoInfo(@RequestParam String url) {
+        String videoId = extractVideoId(url);
+        if (videoId == null) {
+            return "Invalid YouTube URL.";
+        }
+
+        String apiUrl = "https://www.googleapis.com/youtube/v3/videos?id=" + videoId +
+                        "&key=" + API_KEY + "&part=snippet,contentDetails,statistics";
+
+        RestTemplate restTemplate = new RestTemplate();
+        String response = restTemplate.getForObject(apiUrl, String.class);
+        return response;  // You can format this response further for better frontend handling
+    }
+
+    private String extractVideoId(String url) {
+        String regex = "(?:https?:\\/\\/)?(?:www\\.)?(?:youtube\\.com\\/(?:[^\\/]+\\/\\S+\\/|(?:v|e(?:mbed)?)\\/|\\S+?[?&]v=)|youtu\\.be\\/)([a-zA-Z0-9_-]{11})";
+        if (url.matches(regex)) {
+            return url.replaceAll(regex, "$1");
+        }
+        return null;
+    }
+}
