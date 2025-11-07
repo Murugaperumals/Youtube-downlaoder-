@@ -1,13 +1,20 @@
-from flask import Flask, request, render_template_string, send_file, after_this_request
+from flask import Flask, request, render_template_string, send_file, after_this_request, jsonify, url_for
 import os
 import yt_dlp
 import uuid
 import shutil
+import threading
+import time
 
 app = Flask(__name__)
 
 TEMP_DIR = 'temp_downloads'
 os.makedirs(TEMP_DIR, exist_ok=True)
+
+# Resolve ffmpeg location in a cross-platform way. Prefer system ffmpeg if available,
+# otherwise fall back to a local ./ffmpeg.exe (keeps compatibility with the repo's
+# Windows binary). If neither exists, leave as None so yt-dlp can try defaults.
+FFMPEG_LOCATION = shutil.which('ffmpeg') or (os.path.abspath('./ffmpeg.exe') if os.path.exists(os.path.abspath('./ffmpeg.exe')) else None)
 
 # Download function: returns file path and filename
 def download_video_to_file(url, audio_only=False, subs_only=False):
@@ -37,7 +44,9 @@ def download_video_to_file(url, audio_only=False, subs_only=False):
             ydl_opts = {
                 'format': ydl_format,
                 'outtmpl': output_template,
-                'ffmpeg_location': os.path.abspath('./ffmpeg.exe'),
+                # set ffmpeg_location only when we resolved a usable path
+                **({'ffmpeg_location': FFMPEG_LOCATION} if FFMPEG_LOCATION else {}),
+                
                 'quiet': True,
                 'postprocessors': postprocessors,
                 'nocheckcertificate': True,
@@ -54,7 +63,8 @@ def download_video_to_file(url, audio_only=False, subs_only=False):
             ydl_opts = {
                 'format': ydl_format,
                 'outtmpl': output_template,
-                'ffmpeg_location': os.path.abspath('./ffmpeg.exe'),
+                **({'ffmpeg_location': FFMPEG_LOCATION} if FFMPEG_LOCATION else {}),
+                
                 'quiet': True,
                 'postprocessors': postprocessors,
                 'nocheckcertificate': True,  # Ignore SSL certificate errors
@@ -95,6 +105,54 @@ def download_video_to_file(url, audio_only=False, subs_only=False):
     except Exception as e:
         return None, f"Error: {e}"
 
+
+# Simple in-memory job tracking. For production use a persistent queue (Redis/Celery/RQ).
+JOBS = {}
+JOBS_LOCK = threading.Lock()
+
+
+def start_download_job(url, audio_only=False, subs_only=False):
+    job_id = str(uuid.uuid4())
+    with JOBS_LOCK:
+        JOBS[job_id] = {'status': 'queued', 'file': None, 'error': None, 'title': None, 'progress': None}
+
+    def _worker():
+        with JOBS_LOCK:
+            JOBS[job_id]['status'] = 'running'
+
+        # define a progress hook for yt-dlp
+        def hook(d):
+            try:
+                status = d.get('status')
+                with JOBS_LOCK:
+                    if status == 'downloading':
+                        total = d.get('total_bytes') or d.get('total_bytes_estimate')
+                        downloaded = d.get('downloaded_bytes') or 0
+                        percent = None
+                        if total:
+                            try:
+                                percent = int(downloaded * 100 / total)
+                            except Exception:
+                                percent = None
+                        JOBS[job_id]['progress'] = {'status': 'downloading', 'downloaded': downloaded, 'total': total, 'percent': percent, 'eta': d.get('eta')}
+                    elif status == 'finished':
+                        JOBS[job_id]['progress'] = {'status': 'finished'}
+                    else:
+                        JOBS[job_id]['progress'] = {'status': status}
+            except Exception:
+                pass
+
+        file_path, title_or_error = download_video_to_file(url, audio_only=audio_only, subs_only=subs_only, progress_hook=hook)
+        with JOBS_LOCK:
+            if file_path:
+                JOBS[job_id].update({'status': 'finished', 'file': file_path, 'title': title_or_error})
+            else:
+                JOBS[job_id].update({'status': 'error', 'error': title_or_error})
+
+    t = threading.Thread(target=_worker, daemon=True)
+    t.start()
+    return job_id
+
 # HTML form with progress bar and audio-only checkbox (NO resolution)
 form_html = '''
 <!DOCTYPE html>
@@ -124,6 +182,65 @@ form_html = '''
 {% endif %}
 '''
 
+
+status_page_template = '''
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Download status</title>
+    <style>
+        .progress-wrap { width: 100%; max-width: 600px; }
+        .progress { width: 100%; height: 20px; background: #eee; border-radius: 4px; overflow: hidden; }
+        .progress > .bar { height: 100%; width: 0%; background: #4caf50; transition: width 0.4s ease; }
+        .meta { margin-top: 8px; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+<h2>Download started</h2>
+<p>Job ID: {{ job_id }}</p>
+<div class="progress-wrap">
+    <div class="progress"><div id="bar" class="bar"></div></div>
+    <div class="meta"><span id="percent">Queued</span> — <span id="eta"></span></div>
+</div>
+<div id="actions" style="margin-top:12px"></div>
+
+<script>
+    function fmtBytes(n){ if(!n) return ''; if(n<1024) return n+' B'; if(n<1024*1024) return (n/1024).toFixed(1)+' KB'; return (n/1024/1024).toFixed(2)+' MB'; }
+
+    function updateUI(data){
+        var p = data.progress || {};
+        var percent = p.percent;
+        if(data.status === 'finished') percent = 100;
+        if(percent || percent === 0){
+            document.getElementById('bar').style.width = percent + '%';
+            document.getElementById('percent').innerText = (percent===100? 'Completed (100%)' : (percent + '%'));
+        } else {
+            document.getElementById('percent').innerText = data.status;
+        }
+        if(p.eta) document.getElementById('eta').innerText = 'ETA: ' + p.eta; else document.getElementById('eta').innerText = '';
+        if(data.status === 'finished'){
+            document.getElementById('actions').innerHTML = '<a href="'+data.download_url+'">Download file</a>';
+        } else if(data.status === 'error'){
+            document.getElementById('actions').innerText = 'Error: ' + (data.error || 'unknown');
+        }
+    }
+
+    function check(){
+        fetch('{{ status_url }}')
+            .then(r=>r.json())
+            .then(data=>{
+                updateUI(data);
+                if(data.status !== 'finished' && data.status !== 'error') setTimeout(check, 1500);
+            })
+            .catch(e=>{ document.getElementById('actions').innerText = 'Error checking status'; });
+    }
+    check();
+</script>
+</body>
+</html>
+'''
+
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
@@ -132,7 +249,7 @@ def index():
         subs_only = 'subs_only' in request.form
 
         file_path, title_or_error = download_video_to_file(url, audio_only, subs_only)
-
+        
         if file_path:
             @after_this_request
             def cleanup(response):
@@ -160,6 +277,62 @@ def index():
             return render_template_string(form_html, error=title_or_error)
 
     return render_template_string(form_html)
+
+
+@app.route('/status/<job_id>', methods=['GET'])
+def job_status(job_id):
+    with JOBS_LOCK:
+        job = JOBS.get(job_id)
+        if not job:
+            return jsonify({'status': 'not_found'}), 404
+        if job['status'] == 'finished':
+            download_url = url_for('job_download', job_id=job_id, _external=True)
+            prog = job.get('progress') or {}
+            # set 100% when finished if percent missing
+            if not prog.get('percent'):
+                prog['percent'] = 100
+            prog['status'] = 'finished'
+            return jsonify({'status': 'finished', 'download_url': download_url, 'title': job.get('title'), 'progress': prog})
+        if job['status'] == 'error':
+            return jsonify({'status': 'error', 'error': job.get('error'), 'progress': job.get('progress')}), 200
+        return jsonify({'status': job['status'], 'progress': job.get('progress')}), 200
+
+
+@app.route('/download/<job_id>', methods=['GET'])
+def job_download(job_id):
+    with JOBS_LOCK:
+        job = JOBS.get(job_id)
+        if not job:
+            return "Not found", 404
+        if job['status'] != 'finished' or not job.get('file'):
+            return "Not ready", 400
+        file_path = job['file']
+        
+        # Clean up any temp cookie files that might be left
+        for f in os.listdir(TEMP_DIR):
+            if f.startswith('cookies_') and f.endswith('.txt'):
+                try:
+                    os.remove(os.path.join(TEMP_DIR, f))
+                except:
+                    pass
+
+    @after_this_request
+    def cleanup(response):
+        try:
+            os.remove(file_path)
+        except Exception as e:
+            print(f"Cleanup error: {e}")
+        # remove job record
+        with JOBS_LOCK:
+            try:
+                del JOBS[job_id]
+            except Exception:
+                pass
+        return response
+
+    # serve file
+    mimetype = 'audio/mp3' if file_path.endswith('.mp3') else ('text/vtt' if file_path.endswith('.vtt') else 'application/octet-stream')
+    return send_file(file_path, as_attachment=True, download_name=os.path.basename(file_path), mimetype=mimetype)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
