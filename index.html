@@ -1,45 +1,334 @@
-package com.example.youtubeinfo;
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Brewing Tube</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: cursive;
+            background: #f5f5f5;
+            padding: 40px 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            font-size: 50px;
+            margin-bottom: 10px;
+            color: #FF0000;
+            font-family: cursive;
+            font-weight: bold;
+        }
+        .green {
+            color: #FF0000;
+        }
+        .subtitle {
+            color: #000000;
+            margin-bottom: 30px;
+            font-size: 20px;
+            font-family: cursive;
+            font-weight: bold;
+        }
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+        input[type="text"] {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #FF0000;
+            border-radius: 4px;
+            font-size: 20px;
+            color: #FF0000;
+            font-family: cursive;
+            font-weight: bold;
+        }
+        input[type="text"]::placeholder {
+            color: #FF0000;
+        }
+        .get-btn {
+            padding: 10px 20px;
+            background: #FF0000;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 20px;
+            font-family: cursive;
+        }
+        .get-btn:hover {
+            background: #CC0000;
+        }
+        .video-info {
+            margin-bottom: 30px;
+            display: none;
+        }
+        .video-info.show {
+            display: block;
+        }
+        .video-preview {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .video-thumb {
+            width: 120px;
+            height: 70px;
+            background: #000;
+            border-radius: 4px;
+            flex-shrink: 0;
+        }
+        .video-details h3 {
+            font-size: 20px;
+            color: #FF0000;
+            margin-bottom: 5px;
+            line-height: 1.4;
+            font-family: cursive;
+            font-weight: bold;
+        }
+        .video-details p {
+            font-size: 20px;
+            color: #FF0000;
+            line-height: 1.4;
+            font-family: cursive;
+            font-weight: bold;
+        }
+        .success-badge {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 20px 0;
+            font-family: cursive;
+            font-weight: bold;
+            font-size: 20px;
+        }
+        .checkmark {
+            width: 32px;
+            height: 32px;
+            background: #FF0000;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+        .logo {
+            width: 80px;
+            height: 50px;
+            background: #000;
+            border-radius: 4px;
+        }
+        .download-options {
+            display: none;
+        }
+        .download-options.show {
+            display: block;
+        }
+        .options-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #FF0000;
+            margin-bottom: 15px;
+            font-family: cursive;
+        }
+        .button-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .quality-btn {
+            padding: 10px 16px;
+            border: 2px solid #FF0000;
+            color: #FF0000;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 20px;
+            font-weight: bold;
+            font-family: cursive;
+        }
+        .quality-btn:hover {
+            background: #f0f0f0;
+            color: #FF0000;
+        }
+        .checkbox-group {
+            margin: 20px 0;
+        }
+        input[type="checkbox"] {
+            margin-right: 8px;
+        }
+        .checkbox-group label {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+            font-size: 20px;
+            cursor: pointer;
+            font-family: cursive;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Brewing <span class="green">Tube</span></h1>
+    <p class="subtitle">Download any YouTube video of your choice with Brewing Tube, for absolutely free! and i am a good boy</p>
+    
+    <div class="input-group">
+        <input type="text" id="urlInput" placeholder="https://www.youtube.com/watch?v=..." required>
+        <button class="get-btn" onclick="getVideo()">Get Video</button>
+    </div>
 
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.client.RestTemplate;
+    <form method="post" enctype="multipart/form-data" id="downloadForm">
+        <input type="hidden" name="url" id="urlHidden">
+        
+        <div class="video-info" id="videoInfo">
+            <div class="video-preview">
+                <div class="video-thumb"></div>
+                <div class="video-details">
+                    <h3 id="videoTitle"></h3>
+                    <p id="videoDesc"></p>
+                </div>
+            </div>
+            
+            <div class="success-badge">
+                <div class="checkmark">✓</div>
+                <div>Success!</div>
+                <div class="logo"></div>
+            </div>
 
-@SpringBootApplication
-public class YouTubeInfoApplication {
+            <div class="checkbox-group">
+                <label>
+                    <input type="checkbox" name="audio_only" id="audio_only">
+                    Audio Only (MP3)
+                </label>
+                <label>
+                    <input type="checkbox" name="subs_only" id="subs_only">
+                    Download Subtitles Only (EN)
+                </label>
+            </div>
 
-    public static void main(String[] args) {
-        SpringApplication.run(YouTubeInfoApplication.class, args);
-    }
+            <div class="download-options" id="downloadOptions">
+                <div class="options-title">Download options:</div>
+                <div class="button-group">
+                    <button type="button" class="quality-btn" onclick="downloadQuality('144p')">144p</button>
+                    <button type="button" class="quality-btn" onclick="downloadQuality('240p')">240p</button>
+                    <button type="button" class="quality-btn" onclick="downloadQuality('360p')">360p</button>
+                    <button type="button" class="quality-btn" onclick="downloadQuality('480p')">480p</button>
+                    <button type="button" class="quality-btn" onclick="downloadQuality('720p')">720p</button>
+                    <button type="button" class="quality-btn" onclick="downloadQuality('1080p')">1080p</button>
+                    <button type="button" class="quality-btn" onclick="downloadQuality('1440p')">1440p</button>
+                    <button type="button" class="quality-btn" onclick="downloadQuality('2160p')">2160p</button>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+function getVideo() {
+    const url = document.getElementById('urlInput').value;
+    if (!url) return;
+    
+    document.getElementById('urlHidden').value = url;
+    
+    // Fetch video info
+    fetch('/api/video-info', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ url: url })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert('Error: ' + data.error);
+            return;
+        }
+        
+        // Update thumbnail
+        const thumb = document.querySelector('.video-thumb');
+        if (data.thumbnail) {
+            thumb.style.backgroundImage = 'url(' + data.thumbnail + ')';
+            thumb.style.backgroundSize = 'cover';
+            thumb.style.backgroundPosition = 'center';
+        }
+        
+        // Update title and description
+        document.getElementById('videoTitle').textContent = data.title || '';
+        document.getElementById('videoDesc').textContent = data.description || '';
+        
+        // Show video info and options
+        document.getElementById('videoInfo').classList.add('show');
+        document.getElementById('downloadOptions').classList.add('show');
+    })
+    .catch(error => {
+        alert('Error fetching video: ' + error.message);
+    });
 }
 
-@RestController
-class YouTubeController {
-
-    private final String API_KEY = "YOUR_YOUTUBE_API_KEY";  // Replace with your API key
-
-    @GetMapping("/getVideoInfo")
-    public String getVideoInfo(@RequestParam String url) {
-        String videoId = extractVideoId(url);
-        if (videoId == null) {
-            return "Invalid YouTube URL.";
-        }
-
-        String apiUrl = "https://www.googleapis.com/youtube/v3/videos?id=" + videoId +
-                        "&key=" + API_KEY + "&part=snippet,contentDetails,statistics";
-
-        RestTemplate restTemplate = new RestTemplate();
-        String response = restTemplate.getForObject(apiUrl, String.class);
-        return response;  // You can format this response further for better frontend handling
+function downloadQuality(quality) {
+    const url = document.getElementById('urlInput').value;
+    const audioOnly = document.getElementById('audio_only').checked;
+    const subsOnly = document.getElementById('subs_only').checked;
+    
+    if (!url) {
+        alert('Please enter a URL first');
+        return;
     }
-
-    private String extractVideoId(String url) {
-        String regex = "(?:https?:\\/\\/)?(?:www\\.)?(?:youtube\\.com\\/(?:[^\\/]+\\/\\S+\\/|(?:v|e(?:mbed)?)\\/|\\S+?[?&]v=)|youtu\\.be\\/)([a-zA-Z0-9_-]{11})";
-        if (url.matches(regex)) {
-            return url.replaceAll(regex, "$1");
-        }
-        return null;
+    
+    // Show downloading message
+    alert('Downloading... Please wait. Your browser will download the file automatically.');
+    
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/';
+    form.style.display = 'none';
+    
+    const urlInput = document.createElement('input');
+    urlInput.type = 'hidden';
+    urlInput.name = 'url';
+    urlInput.value = url;
+    form.appendChild(urlInput);
+    
+    const qualityInput = document.createElement('input');
+    qualityInput.type = 'hidden';
+    qualityInput.name = 'quality';
+    qualityInput.value = quality;
+    form.appendChild(qualityInput);
+    
+    if (audioOnly) {
+        const audioInput = document.createElement('input');
+        audioInput.type = 'hidden';
+        audioInput.name = 'audio_only';
+        audioInput.value = 'on';
+        form.appendChild(audioInput);
     }
+    
+    if (subsOnly) {
+        const subsInput = document.createElement('input');
+        subsInput.type = 'hidden';
+        subsInput.name = 'subs_only';
+        subsInput.value = 'on';
+        form.appendChild(subsInput);
+    }
+    
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
 }
+</script>
+</body>
+</html>

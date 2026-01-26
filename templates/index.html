@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>YouTube Downloader</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="container">
+    <h1>Youtube <span class="green">Video Downloader</span></h1>
+    <p class="subtitle">Download any YouTube video of your choice with Brewming's YouTube Video Downloader, for absolutely free!</p>
+    
+    <div class="input-group">
+        <input type="text" id="urlInput" placeholder="https://www.youtube.com/watch?v=..." required>
+        <button class="get-btn" onclick="getVideo()">Get Video</button>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" id="downloadForm">
+        <input type="hidden" name="url" id="urlHidden">
+        
+        <div class="video-info" id="videoInfo">
+            <div class="video-preview">
+                <div class="video-thumb"></div>
+                <div class="video-details">
+                    <h3 id="videoTitle"></h3>
+                    <p id="videoDesc"></p>
+                </div>
+            </div>
+            
+            <div class="success-badge">
+                <div class="checkmark">✓</div>
+                <div>Success!</div>
+                <div class="logo"></div>
+            </div>
+
+            <div class="checkbox-group">
+                <label>
+                    <input type="checkbox" name="audio_only" id="audio_only">
+                    Audio Only (MP3)
+                </label>
+                <label>
+                    <input type="checkbox" name="subs_only" id="subs_only">
+                    Download Subtitles Only (EN)
+                </label>
+            </div>
+
+            <div class="download-options" id="downloadOptions">
+                <div class="options-title">Download options:</div>
+                <div class="button-group">
+                    <button type="button" class="quality-btn" onclick="downloadQuality('best')">Best</button>
+                    <button type="button" class="quality-btn" onclick="downloadQuality('144p')">144p</button>
+                    <button type="button" class="quality-btn" onclick="downloadQuality('240p')">240p</button>
+                    <button type="button" class="quality-btn" onclick="downloadQuality('360p')">360p</button>
+                    <button type="button" class="quality-btn" onclick="downloadQuality('480p')">480p</button>
+                    <button type="button" class="quality-btn" onclick="downloadQuality('720p')">720p</button>
+                    <button type="button" class="quality-btn" onclick="downloadQuality('1080p')">1080p</button>
+                    <button type="button" class="quality-btn" onclick="downloadQuality('1440p')">1440p</button>
+                    <button type="button" class="quality-btn" onclick="downloadQuality('2160p')">2160p</button>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+
+{% if error %}
+<p style="color:red;"><strong>{{ error }}</strong></p>
+{% endif %}
+</body>
+</html>
