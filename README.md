@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # YouTube Downloader
 
 This is a simple web application that allows you to download YouTube videos, audio, and subtitles.
@@ -13,7 +12,7 @@ This is a simple web application that allows you to download YouTube videos, aud
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/your-username/your-repository.git
+   git clone https://github.com/Murugaperumals/Youtube-downlaoder-.git
    ```
 
 2. **Install the dependencies:**
@@ -33,9 +32,9 @@ This is a simple web application that allows you to download YouTube videos, aud
 
 ## Usage
 
-1. Paste the YouTube video URL into the input field and click "Get Video".
-2. Select the desired download options (audio only, subtitles only, or video quality).
-3. The download will start automatically.
+1. Paste the YouTube video URL into the input field.
+2. Select the desired download options (video, audio, or subtitles).
+3. Click the "Download" button.
 
 ## Project Structure
 
@@ -46,9 +45,6 @@ This is a simple web application that allows you to download YouTube videos, aud
 - `temp_downloads/`: The directory where the downloaded files are temporarily stored.
 - `ffmpeg-7.1.1-essentials_build/`: The directory containing the ffmpeg essentials build.
 - `README.md`: This file.
-=======
-# Youtube-downloader
-Youtube downloader + Subtitle also
 
 ## Deploying publicly
 
@@ -79,6 +75,3 @@ Then open http://localhost:5000 in your browser.
 Notes:
 - The app will attempt to detect system `ffmpeg`. If you have a local `ffmpeg.exe` in the repo root (Windows), the app will fall back to it.
 - For PaaS deployments, ensure `ffmpeg` is available in the runtime. If your platform doesn't provide it, prefer Docker.
-
-If you want, I can prepare a one-click Deploy file for a specific provider (e.g., Render or Railway) — tell me which provider and I'll add it.
->>>>>>> 793ed659df8cb1b901b8470ef1f4158f973b4d84
